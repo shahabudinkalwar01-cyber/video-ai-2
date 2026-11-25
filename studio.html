@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Studio - ViralMotion</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@900&family=Playfair+Display:wght@700&family=Space+Mono:wght@700&family=Bebas+Neue&display=swap');
+        
+        :root { 
+            --bg: #0f172a; 
+            --card: #1e293b; 
+            --accent: #facc15; 
+            --text: #f8fafc; 
+        }
+        
+        body { 
+            font-family: sans-serif; 
+            background: var(--bg); 
+            color: var(--text); 
+            margin: 0; 
+            padding: 20px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+        }
+        
+        .container { 
+            width: 100%; 
+            max-width: 500px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 20px; 
+        }
+        
+        /* THE VIDEO CANVAS */
+        .canvas-wrapper { 
+            background: #000; 
+            width: 100%; 
+            aspect-ratio: 9/16; 
+            border-radius: 12px; 
+            border: 2px solid #334155; 
+            position: relative; 
+            overflow: hidden; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+        }
+        
+        #motion-card { 
+            position: absolute; 
+            width: 100%; 
+            height: 100%; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            opacity: 0; 
+        }
+        
+        /* TEXT STYLES */
+        #line1 { 
+            font-family: 'Inter', sans-serif; 
+            font-size: 40px; 
+            text-align: center; 
+            padding: 0 20px; 
+            z-index: 10; 
+            line-height: 1.1; 
+        }
+        
+        #line2 { 
+            font-family: 'Bebas Neue', sans-serif; 
+            font-size: 30px; 
+            letter-spacing: 2px; 
+            margin-top: 10px; 
+            text-align: center; 
+            z-index: 10; 
+        }
+
+        /* CONTROLS */
+        .controls { 
+            background: var(--card); 
+            padding: 20px; 
+            border-radius: 12px; 
+            border: 1px solid #334155; 
+        }
+        
+        input { 
+            width: 100%; 
+            padding: 15px; 
+            border-radius: 8px; 
+            border: none; 
+            background: #0f172a; 
+            color: white; 
+            font-size: 16px; 
+            margin-bottom: 15px; 
+            box-sizing: border-box; 
+        }
+        
+        button { 
+            width: 100%; 
+            padding: 15px; 
+            border-radius: 8px; 
+            border: none; 
+            font-weight: bold; 
+            font-size: 16px; 
+            cursor: pointer; 
+            margin-bottom: 10px; 
+            transition: 0.2s; 
+        }
+        
+        .btn-primary { background: var(--accent); color: #000; }
+        .btn-primary:hover { background: #eab308; }
+        .btn-export { background: #22c55e; color: #fff; }
+        .btn-export:hover { background: #16a34a; }
+        button:disabled { background: #475569; cursor: not-allowed; color: #94a3b8; }
+        
+        .ad-slot { 
+            width: 100%; 
+            height: 60px; 
+            background: #1e293b; 
+            border: 1px dashed #475569; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            color: #94a3b8; 
+            border-radius: 8px; 
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- TOP AD -->
+        <div class="ad-slot">Google AdSense Banner</div>
+
+        <!-- PREVIEW CANVAS -->
+        <div class="canvas-wrapper" id="canvas-wrapper">
+            <div id="motion-card">
+                <div id="line1">WAITING FOR AI...</div>
+                <div id="line2">ENTER A TOPIC BELOW</div>
+            </div>
+        </div>
+
+        <!-- CONTROLS -->
+        <div class="controls">
+            <input type="text" id="topicInput" placeholder="E.g., Luxury Watch Empire" value="Luxury Watch Empire">
+            <button class="btn-primary" id="genBtn" onclick="generateVideo()">✨ AI Generate Video</button>
+            <button class="btn-export" id="expBtn" onclick="exportVideo()" disabled>⬇️ Export Video</button>
+        </div>
+        
+        <!-- BOTTOM AD -->
+        <div class="ad-slot">Google AdSense Banner</div>
+    </div>
+
+    <script>
+        // YOUR CLOUDFLARE WORKER URL IS NOW PLUGGED IN HERE
+        const WORKER_URL = "https://videoai2.shahabudinkalwar001.workers.dev/"; 
+
+        const themes = [
+            { bg: "linear-gradient(135deg, #0f172a, #1e3a8a)", text1: "#ffffff", text2: "#facc15" }, // Dark Blue / Gold
+            { bg: "#000000", text1: "#ffffff", text2: "#ef4444" }, // Minimal Black / Red
+            { bg: "#800000", text1: "#ffffff", text2: "#fca5a5" }, // Luxury Red
+            { bg: "#ffffff", text1: "#000000", text2: "#3b82f6" }, // Clean White / Blue
+            { bg: "linear-gradient(45deg, #111, #333)", text1: "#fff", text2: "#888" } // Gradient Grey
+        ];
+
+        const animations = ["slide-up", "scale-up", "fade-in"];
+
+        async function generateVideo() {
+            const topic = document.getElementById("topicInput").value;
+            const btn = document.getElementById("genBtn");
+            const expBtn = document.getElementById("expBtn");
+            const line1 = document.getElementById("line1");
+            const line2 = document.getElementById("line2");
+            const wrapper = document.getElementById("canvas-wrapper");
+            const card = document.getElementById("motion-card");
+
+            if (!topic) {
+                alert("Please enter a topic first!");
+                return;
+            }
+
+            // Update UI to show loading
+            btn.innerText = "AI is thinking...";
+            btn.disabled = true;
+            expBtn.disabled = true;
+            line1.innerText = "Generating Script...";
+            line2.innerText = "";
+            card.style.opacity = 1;
+
+            try {
+                // 1. Fetch from Cloudflare Worker
+                const response = await fetch(WORKER_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ topic: topic })
+                });
+                
+                if (!response.ok) throw new Error("Network response was not ok");
+                
+                const data = await response.json();
+
+                // 2. Pick Random Theme & Animation
+                const theme = themes[Math.floor(Math.random() * themes.length)];
+                const anim = animations[Math.floor(Math.random() * animations.length)];
+
+                // 3. Apply Text & Colors
+                line1.innerText = data.line1 || "FIND 10 IDEAS";
+                line2.innerText = data.line2 || "TO MAKE $10,000";
+                
+                wrapper.style.background = theme.bg;
+                line1.style.color = theme.text1;
+                line2.style.color = theme.text2;
+
+                // 4. Animate with GSAP
+                gsap.killTweensOf([line1, line2]);
+                
+                if (anim === "slide-up") {
+                    gsap.from(line1, { y: 50, opacity: 0, duration: 1, ease: "power3.out" });
+                    gsap.from(line2, { y: 50, opacity: 0, duration: 1, delay: 0.3, ease: "power3.out" });
+                } else if (anim === "scale-up") {
+                    gsap.from([line1, line2], { scale: 0.5, opacity: 0, duration: 1, stagger: 0.2, ease: "back.out(1.7)" });
+                } else {
+                    gsap.from([line1, line2], { opacity: 0, duration: 1.5 });
+                }
+
+                expBtn.disabled = false;
+
+            } catch (err) {
+                console.error(err);
+                line1.innerText = "ERROR";
+                line2.innerText = "Check Worker URL or CORS";
+            } finally {
+                btn.innerText = "✨ AI Generate Video";
+                btn.disabled = false;
+            }
+        }
+
+        // Export Logic (Saves directly to user's device)
+        function exportVideo() {
+            const btn = document.getElementById("expBtn");
+            const wrapper = document.getElementById("canvas-wrapper");
+            
+            btn.innerText = "Recording... (Wait 3 sec)";
+            btn.disabled = true;
+
+            // Browser API to record the canvas
+            const stream = wrapper.captureStream(30);
+            const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+            const chunks = [];
+
+            recorder.ondataavailable = (e) => chunks.push(e.data);
+            recorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'viral-motion-graphic.webm';
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                btn.innerText = "⬇️ Export Video";
+                btn.disabled = false;
+            };
+
+            recorder.start();
+            
+            // Re-trigger animation so it is captured in the recording
+            generateVideo(); 
+
+            // Stop recording after 3 seconds
+            setTimeout(() => { recorder.stop(); }, 3000);
+        }
+    </script>
+</body>
+</html>
